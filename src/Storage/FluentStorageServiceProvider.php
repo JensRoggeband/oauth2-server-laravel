@@ -1,27 +1,32 @@
 <?php
-/**
- * Fluent Storage Service Provider for the OAuth 2.0 Server
+
+/*
+ * This file is part of OAuth 2.0 Laravel.
  *
- * @package   lucadegasperi/oauth2-server-laravel
- * @author    Luca Degasperi <luca@lucadegasperi.com>
- * @copyright Copyright (c) Luca Degasperi
- * @licence   http://mit-license.org/
- * @link      https://github.com/lucadegasperi/oauth2-server-laravel
+ * (c) Luca Degasperi <packages@lucadegasperi.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 
 namespace LucaDegasperi\OAuth2Server\Storage;
 
+use Illuminate\Contracts\Container\Container as Application;
 use Illuminate\Support\ServiceProvider;
+use League\OAuth2\Server\Storage\AccessTokenInterface;
+use League\OAuth2\Server\Storage\AuthCodeInterface;
+use League\OAuth2\Server\Storage\ClientInterface;
+use League\OAuth2\Server\Storage\RefreshTokenInterface;
+use League\OAuth2\Server\Storage\ScopeInterface;
+use League\OAuth2\Server\Storage\SessionInterface;
 
+/**
+ * This is the fluent storage service provider class.
+ *
+ * @author Luca Degasperi <packages@lucadegasperi.com>
+ */
 class FluentStorageServiceProvider extends ServiceProvider
 {
-    /**
-     * Indicates if loading of the provider is deferred.
-     *
-     * @var bool
-     */
-    protected $defer = false;
-
     /**
      * Bootstrap the application events.
      *
@@ -29,7 +34,7 @@ class FluentStorageServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-
+        //
     }
 
     /**
@@ -39,70 +44,82 @@ class FluentStorageServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->registerStorageBindings();
-        $this->registerInterfaceBindings();
+        $this->registerStorageBindings($this->app);
+        $this->registerInterfaceBindings($this->app);
     }
 
     /**
-     * Bind the storage implementations to the IoC container
+     * Bind the storage implementations to the IoC container.
+     *
+     * @param \Illuminate\Contracts\Foundation\Application $app
+     *
      * @return void
      */
-    public function registerStorageBindings()
+    public function registerStorageBindings(Application $app)
     {
         $provider = $this;
 
-        $this->app->bindShared('LucaDegasperi\OAuth2Server\Storage\FluentAccessToken', function () use ($provider) {
+        $app->singleton(FluentAccessToken::class, function () use ($provider) {
             $storage = new FluentAccessToken($provider->app['db']);
             $storage->setConnectionName($provider->getConnectionName());
+
             return $storage;
         });
 
-        $this->app->bindShared('LucaDegasperi\OAuth2Server\Storage\FluentAuthCode', function () use ($provider) {
+        $app->singleton(FluentAuthCode::class, function () use ($provider) {
             $storage = new FluentAuthCode($provider->app['db']);
             $storage->setConnectionName($provider->getConnectionName());
+
             return $storage;
         });
 
-        $this->app->bindShared('LucaDegasperi\OAuth2Server\Storage\FluentClient', function ($app) use ($provider) {
+        $app->singleton(FluentClient::class, function ($app) use ($provider) {
             $limitClientsToGrants = $app['config']->get('oauth2.limit_clients_to_grants');
             $storage = new FluentClient($provider->app['db'], $limitClientsToGrants);
             $storage->setConnectionName($provider->getConnectionName());
+
             return $storage;
         });
 
-        $this->app->bindShared('LucaDegasperi\OAuth2Server\Storage\FluentRefreshToken', function () use ($provider) {
+        $app->singleton(FluentRefreshToken::class, function () use ($provider) {
             $storage = new FluentRefreshToken($provider->app['db']);
             $storage->setConnectionName($provider->getConnectionName());
+
             return $storage;
         });
 
-        $this->app->bindShared('LucaDegasperi\OAuth2Server\Storage\FluentScope', function ($app) use ($provider) {
+        $app->singleton(FluentScope::class, function ($app) use ($provider) {
             $limitClientsToScopes = $app['config']->get('oauth2.limit_clients_to_scopes');
             $limitScopesToGrants = $app['config']->get('oauth2.limit_scopes_to_grants');
             $storage = new FluentScope($provider->app['db'], $limitClientsToScopes, $limitScopesToGrants);
             $storage->setConnectionName($provider->getConnectionName());
+
             return $storage;
         });
 
-        $this->app->bindShared('LucaDegasperi\OAuth2Server\Storage\FluentSession', function () use ($provider) {
+        $app->singleton(FluentSession::class, function () use ($provider) {
             $storage = new FluentSession($provider->app['db']);
             $storage->setConnectionName($provider->getConnectionName());
+
             return $storage;
         });
     }
 
     /**
-     * Bind the interfaces to their implementations
+     * Bind the interfaces to their implementations.
+     *
+     * @param \Illuminate\Contracts\Foundation\Application $app
+     *
      * @return void
      */
-    public function registerInterfaceBindings()
+    public function registerInterfaceBindings(Application $app)
     {
-        $this->app->bind('League\OAuth2\Server\Storage\ClientInterface',       'LucaDegasperi\OAuth2Server\Storage\FluentClient');
-        $this->app->bind('League\OAuth2\Server\Storage\ScopeInterface',        'LucaDegasperi\OAuth2Server\Storage\FluentScope');
-        $this->app->bind('League\OAuth2\Server\Storage\SessionInterface',      'LucaDegasperi\OAuth2Server\Storage\FluentSession');
-        $this->app->bind('League\OAuth2\Server\Storage\AuthCodeInterface',     'LucaDegasperi\OAuth2Server\Storage\FluentAuthCode');
-        $this->app->bind('League\OAuth2\Server\Storage\AccessTokenInterface',  'LucaDegasperi\OAuth2Server\Storage\FluentAccessToken');
-        $this->app->bind('League\OAuth2\Server\Storage\RefreshTokenInterface', 'LucaDegasperi\OAuth2Server\Storage\FluentRefreshToken');
+        $app->bind(ClientInterface::class, FluentClient::class);
+        $app->bind(ScopeInterface::class, FluentScope::class);
+        $app->bind(SessionInterface::class, FluentSession::class);
+        $app->bind(AuthCodeInterface::class, FluentAuthCode::class);
+        $app->bind(AccessTokenInterface::class, FluentAccessToken::class);
+        $app->bind(RefreshTokenInterface::class, FluentRefreshToken::class);
     }
 
     /**
@@ -113,4 +130,3 @@ class FluentStorageServiceProvider extends ServiceProvider
         return ($this->app['config']->get('oauth2.database') !== 'default') ? $this->app['config']->get('oauth2.database') : null;
     }
 }
- 
